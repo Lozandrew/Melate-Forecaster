@@ -23,21 +23,25 @@ def cargar_datos() -> pd.DataFrame:
     
     df = pd.read_csv(CSV_HISTORICO)
     
-    # Crear fecha_dt si no existe (el scraper no la guarda)
-    if "fecha_dt" not in df.columns:
-        if "fecha" in df.columns:
-            df["fecha_dt"] = pd.to_datetime(df["fecha"], format="%d/%m/%Y", errors="coerce")
-        else:
-            # Intentar detectar la columna de fecha automáticamente
-            for col in df.columns:
-                if "fecha" in col.lower() or "date" in col.lower():
-                    df["fecha_dt"] = pd.to_datetime(df[col], format="%d/%m/%Y", errors="coerce")
-                    break
+    # === FIX: Forzar conversión a datetime ===
+    if "fecha_dt" in df.columns:
+        df["fecha_dt"] = pd.to_datetime(df["fecha_dt"], errors="coerce")
+    elif "fecha" in df.columns:
+        df["fecha_dt"] = pd.to_datetime(df["fecha"], format="%d/%m/%Y", errors="coerce")
+    else:
+        for col in df.columns:
+            if "fecha" in col.lower() or "date" in col.lower():
+                df["fecha_dt"] = pd.to_datetime(df[col], errors="coerce")
+                break
+    
+    # Verificación final
+    if not pd.api.types.is_datetime64_any_dtype(df["fecha_dt"]):
+        df["fecha_dt"] = pd.to_datetime(df["fecha_dt"], errors="coerce")
     
     df = df.dropna(subset=["fecha_dt"])
     
     if len(df) < MIN_SORTEOS_PARA_MODELO:
-        print(f"⚠️  Solo {len(df)} sorteos. Recomendados: {MIN_SORTEOS_PARA_MODELO}")
+        print(f"️  Solo {len(df)} sorteos. Recomendados: {MIN_SORTEOS_PARA_MODELO}")
     return df
 
 

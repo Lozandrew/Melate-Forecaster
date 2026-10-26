@@ -137,13 +137,20 @@ def cargar_csv_existente() -> pd.DataFrame:
     if CSV_HISTORICO.exists():
         df = pd.read_csv(CSV_HISTORICO)
         
-        # Normalizar columna de fecha a datetime
+        # === FIX: Forzar conversión a datetime ===
         if "fecha_dt" in df.columns:
             df["fecha_dt"] = pd.to_datetime(df["fecha_dt"], errors="coerce")
         elif "fecha" in df.columns:
             df["fecha_dt"] = pd.to_datetime(df["fecha"], format="%d/%m/%Y", errors="coerce")
+        else:
+            for col in df.columns:
+                if "fecha" in col.lower() or "date" in col.lower():
+                    df["fecha_dt"] = pd.to_datetime(df[col], errors="coerce")
+                    break
         
-        # Eliminar filas sin fecha válida
+        if not pd.api.types.is_datetime64_any_dtype(df["fecha_dt"]):
+            df["fecha_dt"] = pd.to_datetime(df["fecha_dt"], errors="coerce")
+        
         df = df.dropna(subset=["fecha_dt"])
         print(f"[scraper] CSV local existente cargado: {len(df)} sorteos")
         return df

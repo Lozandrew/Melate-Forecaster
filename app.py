@@ -76,30 +76,27 @@ def cargar_datos_cache():
     """Carga datos con manejo de errores explícito."""
     try:
         if not CSV_HISTORICO.exists():
-            st.warning(f"⚠️ No existe el archivo: {CSV_HISTORICO}")
             return None
         
         df = pd.read_csv(CSV_HISTORICO)
         
-        # Convertir fecha a datetime
+        # === FIX: Forzar conversión a datetime ===
         if "fecha_dt" in df.columns:
             df["fecha_dt"] = pd.to_datetime(df["fecha_dt"], errors="coerce")
         elif "fecha" in df.columns:
             df["fecha_dt"] = pd.to_datetime(df["fecha"], format="%d/%m/%Y", errors="coerce")
         else:
             for col in df.columns:
-                if "fecha" in col.lower():
+                if "fecha" in col.lower() or "date" in col.lower():
                     df["fecha_dt"] = pd.to_datetime(df[col], errors="coerce")
                     break
         
-        # Verificar que sea datetime
         if not pd.api.types.is_datetime64_any_dtype(df["fecha_dt"]):
             df["fecha_dt"] = pd.to_datetime(df["fecha_dt"], errors="coerce")
         
         df = df.dropna(subset=["fecha_dt"])
         
         if df.empty:
-            st.warning("️ El CSV está vacío o no tiene fechas válidas")
             return None
         
         return df
@@ -107,6 +104,7 @@ def cargar_datos_cache():
     except Exception as e:
         st.error(f"❌ Error al cargar datos: {e}")
         return None
+
 
 
 def bolas_html(numeros):

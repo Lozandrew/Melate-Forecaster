@@ -113,25 +113,23 @@ def generar_combinacion_muestreo(probs: np.ndarray, n_intentos: int = 10000) -> 
 
 def generar_recomendaciones(n: int = N_COMBINACIONES_RECOMENDADAS) -> List[Tuple[np.ndarray, float]]:
     """Genera N combinaciones recomendadas."""
-    # Leemos sin parse_dates
     df = pd.read_csv(CSV_HISTORICO)
     
-    # === FIX: Asegurar que fecha_dt sea datetime real ===
-    if "fecha_dt" not in df.columns:
-        if "fecha" in df.columns:
-            df["fecha_dt"] = pd.to_datetime(df["fecha"], format="%d/%m/%Y", errors="coerce")
-        else:
-            for col in df.columns:
-                if "fecha" in col.lower() or "date" in col.lower():
-                    df["fecha_dt"] = pd.to_datetime(df[col], format="%d/%m/%Y", errors="coerce")
-                    break
+    # === FIX: Forzar conversión a datetime ===
+    if "fecha_dt" in df.columns:
+        df["fecha_dt"] = pd.to_datetime(df["fecha_dt"], errors="coerce")
+    elif "fecha" in df.columns:
+        df["fecha_dt"] = pd.to_datetime(df["fecha"], format="%d/%m/%Y", errors="coerce")
+    else:
+        for col in df.columns:
+            if "fecha" in col.lower() or "date" in col.lower():
+                df["fecha_dt"] = pd.to_datetime(df[col], errors="coerce")
+                break
     
-    df = df.dropna(subset=["fecha_dt"])
-    
-    # === FIX: Asegurar que sea tipo datetime (no string) ===
     if not pd.api.types.is_datetime64_any_dtype(df["fecha_dt"]):
         df["fecha_dt"] = pd.to_datetime(df["fecha_dt"], errors="coerce")
-        df = df.dropna(subset=["fecha_dt"])
+    
+    df = df.dropna(subset=["fecha_dt"])
 
     modelos, feature_cols = cargar_modelo()
 
