@@ -73,37 +73,44 @@ st.markdown("""
 # ═══════════════════════════════════════════════════════════
 @st.cache_data(ttl=300, show_spinner=False)
 def cargar_datos_cache():
-    """Carga datos con manejo de errores explícito."""
-    try:
-        if not CSV_HISTORICO.exists():
-            return None
-        
-        df = pd.read_csv(CSV_HISTORICO)
-        
-        # === FIX: Forzar conversión a datetime ===
-        if "fecha_dt" in df.columns:
-            df["fecha_dt"] = pd.to_datetime(df["fecha_dt"], errors="coerce")
-        elif "fecha" in df.columns:
-            df["fecha_dt"] = pd.to_datetime(df["fecha"], format="%d/%m/%Y", errors="coerce")
-        else:
-            for col in df.columns:
-                if "fecha" in col.lower() or "date" in col.lower():
-                    df["fecha_dt"] = pd.to_datetime(df[col], errors="coerce")
-                    break
-        
-        if not pd.api.types.is_datetime64_any_dtype(df["fecha_dt"]):
-            df["fecha_dt"] = pd.to_datetime(df["fecha_dt"], errors="coerce")
-        
-        df = df.dropna(subset=["fecha_dt"])
-        
-        if df.empty:
-            return None
-        
-        return df
-        
-    except Exception as e:
-        st.error(f"❌ Error al cargar datos: {e}")
+    if not CSV_HISTORICO.exists():
         return None
+
+    df = pd.read_csv(CSV_HISTORICO)
+
+    # 1. Asegurar que exista la columna 'fecha'
+    if "fecha" not in df.columns:
+        for col in df.columns:
+            if "fecha" in col.lower() or "date" in col.lower():
+                df = df.rename(columns={col: "fecha"})
+                break
+    
+    if "fecha" not in df.columns:
+        return None
+
+    # 2. Limpiar espacios en la columna fecha
+    df["fecha"] = df["fecha"].astype(str).str.strip()
+
+    # 3. RECONSTRUIR fecha_dt si está vacía (por la coma extra del CSV)
+    if "fecha_dt" in df.columns:
+        # Intentamos leer fecha_dt. Si está vacía, se convierte en NaT
+        df["fecha_dt"] = pd.to_datetime(df["fecha_dt"], errors="coerce")
+        
+        # Donde sea NaT (vacío), usamos la columna 'fecha' para rellenarlo
+        filas_vacias = df["fecha_dt"].isna()
+        if filas_vacias.any():
+            df.loc[filas_vacias, "fecha_dt"] = pd.to_datetime(
+                df.loc[filas_vacias, "fecha"], dayfirst=True, errors="coerce"
+            )
+    else:
+        # Si la columna no existe, la creamos desde 'fecha'
+        df["fecha_dt"] = pd.to_datetime(df["fecha"], dayfirst=True, errors="coerce")
+
+    # 4. Eliminar solo las filas que realmente no tengan fecha válida y ordenar
+    df = df.dropna(subset=["fecha_dt"])
+    df = df.drop_duplicates(subset=["fecha_dt"]).sort_values("fecha_dt").reset_index(drop=True)
+
+    return df if not df.empty else None
 
 
 
