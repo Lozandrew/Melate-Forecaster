@@ -6,7 +6,7 @@ data/
 # Modelos
 # models/
 # *.joblib
-!models/.gitkeep
+# !models/.gitkeep
 
 # Output
 output/
